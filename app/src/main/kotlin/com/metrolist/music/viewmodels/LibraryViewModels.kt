@@ -158,7 +158,7 @@ constructor(
         context.dataStore.data
             .map {
                 Triple(
-                    it[ArtistFilterKey].toEnum(ArtistFilter.LIKED),
+                    it[ArtistFilterKey].toEnum(ArtistFilter.LIBRARY),
                     it[ArtistSortTypeKey].toEnum(ArtistSortType.CREATE_DATE),
                     it[ArtistSortDescendingKey] ?: true,
                 )
@@ -230,7 +230,7 @@ constructor(
             .map {
                 Pair(
                     Triple(
-                        it[AlbumFilterKey].toEnum(AlbumFilter.LIKED),
+                        it[AlbumFilterKey].toEnum(AlbumFilter.LIBRARY),
                         it[AlbumSortTypeKey].toEnum(AlbumSortType.CREATE_DATE),
                         it[AlbumSortDescendingKey] ?: true,
                     ),
