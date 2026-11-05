@@ -1,8 +1,11 @@
-# Fork-only: builds a test APK on GitHub's free runners for PRs and manual runs.
+# Fork-only: builds a test APK on GitHub's free runners for PRs, manual runs and
+# pushes to fork-test/** branches.
 # Upstream's workflows use Blacksmith runners, which this fork can't use.
 name: Fork test build
 
 on:
+  push:
+    branches: ["fork-test/**"]
   pull_request:
   workflow_dispatch:
 
