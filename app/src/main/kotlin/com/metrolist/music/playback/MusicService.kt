@@ -1905,26 +1905,32 @@ class MusicService :
         }
     }
 
-    /** Removes everything from the queue except the current song, and stops it loading more. */
-    fun clearQueue() {
+    /**
+     * Removes the songs at [indices] from the queue. Once at most one song is left the queue stops
+     * loading more, so it doesn't refill itself, and removing every song stops playback.
+     */
+    fun removeFromQueue(indices: Collection<Int>) {
         if (!playerInitialized.value) {
-            Timber.tag(TAG).w("clearQueue called before player initialization")
+            Timber.tag(TAG).w("removeFromQueue called before player initialization")
             return
         }
 
         val itemCount = player.mediaItemCount
-        if (itemCount == 0) return
+        val toRemove = indices.filter { it in 0 until itemCount }.distinct().sortedDescending()
+        if (toRemove.isEmpty()) return
 
-        currentQueue = EmptyQueue
-        queueTitle = null
-        originalQueueSize = 0
-
-        val currentIndex = player.currentMediaItemIndex
-        if (itemCount > currentIndex + 1) {
-            player.removeMediaItems(currentIndex + 1, itemCount)
+        if (itemCount - toRemove.size <= 1) {
+            currentQueue = EmptyQueue
+            queueTitle = null
+            originalQueueSize = 0
         }
-        if (currentIndex > 0) {
-            player.removeMediaItems(0, currentIndex)
+
+        if (toRemove.size == itemCount) {
+            clearAutomix()
+            player.stop()
+            player.clearMediaItems()
+        } else {
+            toRemove.forEach(player::removeMediaItem)
         }
     }
 
