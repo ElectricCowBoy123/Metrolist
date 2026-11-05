@@ -187,6 +187,8 @@ fun AutoPlaylistScreen(
         }
 
     val playlistId = viewModel.playlist
+    // A new order each time the page is opened, which stays put as the song list updates
+    val coverSeed = remember { kotlin.random.Random.nextLong() }
     val playlistType =
         when (playlistId) {
             "liked" -> PlaylistType.LIKE
@@ -495,6 +497,20 @@ fun AutoPlaylistScreen(
 
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val pullRefreshState = rememberPullToRefreshState()
+    val coverUrls =
+        remember(songs, coverSeed) {
+            if (playlistType == PlaylistType.LIKE) {
+                songs.orEmpty()
+                    .distinctBy { it.song.albumId ?: it.song.thumbnailUrl }
+                    .mapNotNull { it.song.thumbnailUrl }
+                    .distinct()
+                    .sorted()
+                    .shuffled(kotlin.random.Random(coverSeed))
+            } else {
+                emptyList()
+            }
+        }
+
     val canRefresh = playlistType == PlaylistType.LIKE || playlistType == PlaylistType.UPLOADED
 
     Box(
@@ -531,6 +547,7 @@ fun AutoPlaylistScreen(
                             AutoPlaylistHeader(
                                 name = playlist,
                                 songs = songs!!,
+                                coverUrls = coverUrls,
                                 likeLength = likeLength,
                                 downloadState = downloadState,
                                 onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
@@ -859,10 +876,41 @@ fun AutoPlaylistScreen(
     }
 }
 
+/** The largest square grid, up to 4x4, that [coverCount] different covers can fill. */
+private fun coverGridSize(coverCount: Int): Int =
+    when {
+        coverCount >= 16 -> 4
+        coverCount >= 9 -> 3
+        coverCount >= 4 -> 2
+        else -> 1
+    }
+
+@Composable
+private fun CoverGrid(
+    coverUrls: List<String>,
+    gridSize: Int,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        coverUrls.take(gridSize * gridSize).chunked(gridSize).forEach { row ->
+            Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                row.forEach { url ->
+                    AsyncImage(
+                        model = url,
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun AutoPlaylistHeader(
     name: String,
     songs: List<Song>,
+    coverUrls: List<String>,
     likeLength: Int,
     downloadState: Int,
     onShowRemoveDownloadDialog: () -> Unit,
@@ -895,12 +943,17 @@ private fun AutoPlaylistHeader(
                         ),
                 shape = RoundedCornerShape(3.dp),
             ) {
-                AsyncImage(
-                    model = songs[0].song.thumbnailUrl,
-                    contentDescription = null,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                val gridSize = coverGridSize(coverUrls.size)
+                if (gridSize > 1) {
+                    CoverGrid(coverUrls = coverUrls, gridSize = gridSize)
+                } else {
+                    AsyncImage(
+                        model = songs[0].song.thumbnailUrl,
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
 
