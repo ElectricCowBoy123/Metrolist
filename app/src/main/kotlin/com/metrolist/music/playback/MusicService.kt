@@ -2018,6 +2018,7 @@ class MusicService :
     /** Tops the radio up from its next page once it's running low. */
     private fun loadMoreRadio() {
         if (loadingMoreRadio || !radioQueue.isActive || radioQueue.upNext.value.size > 5) return
+        if (!cachedAutoLoadMore || (cachedDisableLoadMoreWhenRepeatAll && player.repeatMode == REPEAT_MODE_ALL)) return
         val queue = currentQueue
         if (!queue.hasNextPage()) return
         loadingMoreRadio = true
