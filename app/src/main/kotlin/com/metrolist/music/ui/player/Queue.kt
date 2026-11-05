@@ -1072,6 +1072,15 @@ fun Queue(
                 ) {
                     Row {
                         IconButton(
+                            onClick = playerConnection::clearQueue,
+                            enabled = !isListenTogetherGuest && queueWindows.size > 1,
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.clear_all),
+                                contentDescription = stringResource(R.string.clear_queue),
+                            )
+                        }
+                        IconButton(
                             onClick = { locked = !locked },
                             modifier = Modifier.padding(horizontal = 6.dp),
                         ) {

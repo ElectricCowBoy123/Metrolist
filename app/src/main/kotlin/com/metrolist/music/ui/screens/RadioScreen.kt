@@ -84,8 +84,18 @@ fun RadioScreen(
     val loaded = state as? RadioViewModel.State.Loaded
     val title = loaded?.title ?: stringResource(R.string.start_radio)
 
-    fun play(index: Int = 0, shuffle: Boolean = false) {
-        viewModel.queueFor(index, shuffle)?.let(playerConnection::playQueue)
+    fun play(index: Int) {
+        viewModel.queueFor(index)?.let(playerConnection::playQueue)
+    }
+
+    // The radio of the song that's already playing carries on from it instead of restarting it.
+    fun startRadio(shuffle: Boolean = false) {
+        val queue = viewModel.queueFor(shuffle = shuffle) ?: return
+        if (viewModel.seedVideoId == mediaMetadata?.id) {
+            playerConnection.continueWithQueue(queue)
+        } else {
+            playerConnection.playQueue(queue)
+        }
     }
 
     LazyColumn(
@@ -139,7 +149,7 @@ fun RadioScreen(
                         )
                         Spacer(Modifier.size(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(onClick = { play() }, modifier = Modifier.weight(1f)) {
+                            Button(onClick = { startRadio() }, modifier = Modifier.weight(1f)) {
                                 Icon(
                                     painter = painterResource(R.drawable.play),
                                     contentDescription = null,
@@ -148,7 +158,7 @@ fun RadioScreen(
                                 Spacer(Modifier.width(8.dp))
                                 Text(stringResource(R.string.radio_play))
                             }
-                            OutlinedButton(onClick = { play(shuffle = true) }, modifier = Modifier.weight(1f)) {
+                            OutlinedButton(onClick = { startRadio(shuffle = true) }, modifier = Modifier.weight(1f)) {
                                 Icon(
                                     painter = painterResource(R.drawable.shuffle),
                                     contentDescription = null,

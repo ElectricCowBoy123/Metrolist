@@ -268,21 +268,22 @@ class PlayerConnection(
         mediaMetadata.value = player.currentMetadata
     }
 
-    fun startRadioSeamlessly() {
+    fun continueWithQueue(queue: Queue) {
         // Block if Listen Together guest
         if (shouldBlockPlaybackChanges?.invoke() == true) {
-            Timber.tag("PlayerConnection").d("startRadioSeamlessly blocked - Listen Together guest")
+            Timber.tag("PlayerConnection").d("continueWithQueue blocked - Listen Together guest")
             return
         }
-        if (!playerReadinessFlow.value) {
-            Timber.tag(TAG).w("startRadioSeamlessly called before player ready; delegating to service")
+        service.continueWithQueue(queue)
+    }
+
+    fun clearQueue() {
+        // Block if Listen Together guest
+        if (shouldBlockPlaybackChanges?.invoke() == true) {
+            Timber.tag("PlayerConnection").d("clearQueue blocked - Listen Together guest")
+            return
         }
-        try {
-            service.startRadioSeamlessly()
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error in startRadioSeamlessly")
-            throw e
-        }
+        service.clearQueue()
     }
 
     fun playNext(item: MediaItem) = playNext(listOf(item))

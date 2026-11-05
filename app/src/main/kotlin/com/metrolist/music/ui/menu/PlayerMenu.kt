@@ -88,6 +88,8 @@ import com.metrolist.music.listentogether.ConnectionState
 import com.metrolist.music.listentogether.ListenTogetherEvent
 import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.playback.ExoDownloadService
+import com.metrolist.music.playback.queues.YouTubeQueue
+import com.metrolist.music.ui.screens.navigateToRadio
 import com.metrolist.music.db.entities.Song
 import com.metrolist.music.db.entities.SpeedDialItem
 import com.metrolist.music.ui.component.BottomSheetState
@@ -313,7 +315,6 @@ fun PlayerMenu(
             ),
     ) {
         item {
-            val startingRadioText = stringResource(R.string.starting_radio)
             NewActionGrid(
                 actions =
                     listOfNotNull(
@@ -329,8 +330,11 @@ fun PlayerMenu(
                                 },
                                 text = stringResource(R.string.start_radio),
                                 onClick = {
-                                    Toast.makeText(context, startingRadioText, Toast.LENGTH_SHORT).show()
-                                    playerConnection.startRadioSeamlessly()
+                                    navController.navigateToRadio(
+                                        YouTubeQueue.radioEndpoint(mediaMetadata.id),
+                                        mediaMetadata.title,
+                                    )
+                                    playerBottomSheetState.collapseSoft()
                                     onDismiss()
                                 },
                             )
