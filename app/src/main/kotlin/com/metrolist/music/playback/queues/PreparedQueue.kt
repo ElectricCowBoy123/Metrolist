@@ -18,6 +18,8 @@ class PreparedQueue(
 ) : Queue {
     override val preloadItem: MediaMetadata? = null
 
+    override val isRadio: Boolean = true
+
     override suspend fun getInitialStatus(): Queue.Status = status
 
     override fun hasNextPage(): Boolean = source?.hasNextPage() == true

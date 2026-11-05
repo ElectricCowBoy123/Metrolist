@@ -17,6 +17,9 @@ class YouTubeQueue(
     private var endpoint: WatchEndpoint,
     override val preloadItem: MediaMetadata? = null,
 ) : Queue {
+    override val isRadio: Boolean =
+        endpoint.playlistId.let { it == null || it.startsWith("RDAMVM") || it.startsWith("RDAMPL") }
+
     private var continuation: String? = null
     private var retryCount = 0
     private val maxRetries = 3
