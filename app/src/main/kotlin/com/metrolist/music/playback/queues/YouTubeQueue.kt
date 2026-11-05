@@ -112,13 +112,14 @@ class YouTubeQueue(
          * Explicitly requests the RDAMVM playlist to trigger automotive/radio mixing.
          */
         fun radio(song: MediaMetadata): YouTubeQueue {
-            return YouTubeQueue(
-                WatchEndpoint(
-                    videoId = song.id,
-                    playlistId = "RDAMVM${song.id}"
-                ),
-                song
-            )
+            return YouTubeQueue(radioEndpoint(song.id), song)
         }
+
+        /** The endpoint of a song's radio (its RDAMVM mix). */
+        fun radioEndpoint(videoId: String) =
+            WatchEndpoint(
+                videoId = videoId,
+                playlistId = "RDAMVM$videoId",
+            )
     }
 }

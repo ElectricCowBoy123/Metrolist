@@ -5,6 +5,8 @@
 
 package com.metrolist.music.ui.menu
 
+import com.metrolist.music.LocalNavController
+import com.metrolist.music.ui.screens.navigateToRadio
 import android.content.Intent
 import android.content.res.Configuration
 import android.widget.Toast
@@ -87,6 +89,7 @@ fun PlaylistMenu(
     val database = LocalDatabase.current
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    val navController = LocalNavController.current
     val listenTogetherManager = LocalListenTogetherManager.current
     val isGuest = listenTogetherManager?.isInRoom == true && !listenTogetherManager.isHost
     val dbPlaylist by database.playlist(playlist.id).collectAsStateWithLifecycle(initialValue = playlist)
@@ -416,7 +419,7 @@ fun PlaylistMenu(
                                                 YouTube.playlist(browseId).getOrNull()?.playlist?.let { playlistItem ->
                                                     playlistItem.radioEndpoint?.let { radioEndpoint ->
                                                         withContext(Dispatchers.Main) {
-                                                            playerConnection.playQueue(YouTubeQueue(radioEndpoint))
+                                                            navController.navigateToRadio(radioEndpoint, playlistItem.title)
                                                         }
                                                     }
                                                 }

@@ -5,6 +5,7 @@
 
 package com.metrolist.music.ui.screens.artist
 
+import com.metrolist.music.ui.screens.navigateToRadio
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -401,7 +402,10 @@ fun ArtistScreen(
                                             artistPage?.artist?.radioEndpoint?.let { radioEndpoint ->
                                                 OutlinedButton(
                                                     onClick = {
-                                                        playerConnection.playQueue(YouTubeQueue(radioEndpoint))
+                                                        navController.navigateToRadio(
+                                                            radioEndpoint,
+                                                            artistPage?.artist?.title,
+                                                        )
                                                     },
                                                     shape = RoundedCornerShape(50),
                                                     modifier = Modifier.height(40.dp),

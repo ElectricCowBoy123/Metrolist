@@ -18,6 +18,7 @@ import com.metrolist.music.db.MusicDatabase
 import com.metrolist.music.extensions.filterExplicit
 import com.metrolist.music.extensions.filterVideoSongs
 import com.metrolist.music.extensions.toEnum
+import com.metrolist.music.genre.ArtistGenreFetcher
 import com.metrolist.music.utils.SyncUtils
 import com.metrolist.music.utils.dataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -42,8 +44,12 @@ constructor(
     private val database: MusicDatabase,
     savedStateHandle: SavedStateHandle,
     private val syncUtils: SyncUtils,
+    private val genreFetcher: ArtistGenreFetcher,
 ) : ViewModel() {
     val playlist = savedStateHandle.get<String>("playlist")!!
+
+    /** Progress of the background genre lookup, shown while sorting by genre. */
+    val genreLookupProgress = genreFetcher.progress
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
@@ -73,6 +79,10 @@ constructor(
                         .map { it.filterExplicit(hideExplicit).filterVideoSongs(hideVideoSongs) }
 
                     else -> kotlinx.coroutines.flow.flowOf(emptyList())
+                }.onEach { songs ->
+                    if (sortType == SongSortType.GENRE) {
+                        genreFetcher.fetchMissing(songs.mapNotNull { it.orderedArtists.firstOrNull() })
+                    }
                 }
             }
             .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Lazily, emptyList())

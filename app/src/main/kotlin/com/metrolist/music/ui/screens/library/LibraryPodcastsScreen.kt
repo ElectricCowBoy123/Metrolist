@@ -367,8 +367,11 @@ fun LibraryPodcastsScreen(
                                         SongSortType.NAME -> R.string.sort_by_name
                                         SongSortType.ARTIST -> R.string.sort_by_artist
                                         SongSortType.PLAY_TIME -> R.string.sort_by_play_time
+                                        SongSortType.GENRE -> R.string.sort_by_genre
                                     }
                                 },
+                                // Episodes have no artist genre.
+                                options = SongSortType.entries - SongSortType.GENRE,
                             )
                             Spacer(Modifier.weight(1f))
                             Text(

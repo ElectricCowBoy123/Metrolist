@@ -212,6 +212,7 @@ fun CommunityPlaylistCard(
 ) {
     val database = LocalDatabase.current
     val playerConnection = LocalPlayerConnection.current
+    val navController = LocalNavController.current
     val listenTogetherManager = LocalListenTogetherManager.current
     val isListenTogetherGuest = listenTogetherManager?.let { it.isInRoom && !it.isHost } ?: false
     val scope = rememberCoroutineScope()
@@ -420,7 +421,7 @@ fun CommunityPlaylistCard(
                     onClick = {
                         if (!isListenTogetherGuest) {
                             item.playlist.radioEndpoint?.let {
-                                playerConnection?.playQueue(YouTubeQueue(it))
+                                navController.navigateToRadio(it, item.playlist.title)
                             }
                         }
                     },

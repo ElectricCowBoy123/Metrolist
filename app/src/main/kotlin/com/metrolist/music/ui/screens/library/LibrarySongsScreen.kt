@@ -62,6 +62,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.metrolist.innertube.YouTube
 import com.metrolist.music.LocalPlayerAwareWindowInsets
+import com.metrolist.music.LocalDatabase
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
 import com.metrolist.music.constants.CONTENT_TYPE_HEADER
@@ -86,6 +87,11 @@ import com.metrolist.music.ui.component.LibrarySearchHeader
 import com.metrolist.music.ui.component.LocalMenuState
 import com.metrolist.music.ui.component.SongListItem
 import com.metrolist.music.ui.component.SortHeader
+import kotlinx.coroutines.flow.map
+import com.metrolist.music.ui.component.GenreLookupProgress
+import com.metrolist.music.ui.component.GenreSectionHeader
+import com.metrolist.music.db.genre
+import com.metrolist.music.db.toGenreMap
 import com.metrolist.music.ui.menu.SongMenu
 import com.metrolist.music.ui.utils.isScrollingUp
 import com.metrolist.music.utils.rememberEnumPreference
@@ -128,6 +134,10 @@ fun LibrarySongsScreen(
     val hideExplicit by rememberPreference(key = HideExplicitKey, defaultValue = false)
 
     val songs by viewModel.allSongs.collectAsStateWithLifecycle()
+    val genreLookupProgress by viewModel.genreLookupProgress.collectAsStateWithLifecycle()
+    val database = LocalDatabase.current
+    val genreMap by remember(database) { database.artistGenres().map { it.toGenreMap() } }
+        .collectAsStateWithLifecycle(initialValue = emptyMap())
     var isSearchActive by rememberSaveable { mutableStateOf(false) }
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val debouncedSearchQuery by viewModel.debouncedSearchQuery.collectAsStateWithLifecycle()
@@ -390,6 +400,7 @@ fun LibrarySongsScreen(
                                 SongSortType.NAME -> R.string.sort_by_name
                                 SongSortType.ARTIST -> R.string.sort_by_artist
                                 SongSortType.PLAY_TIME -> R.string.sort_by_play_time
+                                SongSortType.GENRE -> R.string.sort_by_genre
                             }
                         },
                     )
@@ -419,6 +430,14 @@ fun LibrarySongsScreen(
                 }
             }
 
+            if (sortType == SongSortType.GENRE) {
+                genreLookupProgress?.let { progress ->
+                    item(key = "genre_lookup_progress", contentType = CONTENT_TYPE_HEADER) {
+                        GenreLookupProgress(progress = progress)
+                    }
+                }
+            }
+
             if (filteredSongs.isEmpty() && searchQuery.isNotBlank()) {
                 item(
                     key = "empty_search_result",
@@ -433,6 +452,13 @@ fun LibrarySongsScreen(
                 key = { index, item -> "${item.song.id}_$index" },
                 contentType = { _, _ -> CONTENT_TYPE_SONG },
             ) { index, song ->
+                if (sortType == SongSortType.GENRE) {
+                    val genre = song.genre(genreMap)
+                    if (index == 0 || filteredSongs[index - 1].genre(genreMap) != genre) {
+                        GenreSectionHeader(genre = genre)
+                    }
+                }
+
                 SongListItem(
                     song = song,
                     showInLibraryIcon = true,

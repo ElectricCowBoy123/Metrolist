@@ -41,6 +41,7 @@ inline fun <reified T : Enum<T>> SortHeader(
     crossinline sortTypeText: (T) -> Int,
     modifier: Modifier = Modifier,
     showDescending: Boolean? = true,
+    options: List<T> = enumValues<T>().toList(),
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -67,7 +68,7 @@ inline fun <reified T : Enum<T>> SortHeader(
             onDismissRequest = { menuExpanded = false },
             modifier = Modifier.widthIn(min = 172.dp),
         ) {
-            enumValues<T>().forEach { type ->
+            options.forEach { type ->
                 DropdownMenuItem(
                     text = {
                         Text(
