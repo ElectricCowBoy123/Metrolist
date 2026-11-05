@@ -1072,12 +1072,12 @@ fun Queue(
                 ) {
                     Row {
                         IconButton(
-                            onClick = playerConnection::clearQueue,
-                            enabled = !isListenTogetherGuest && queueWindows.size > 1,
+                            onClick = { inSelectMode = true },
+                            enabled = !isListenTogetherGuest && queueWindows.isNotEmpty(),
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.clear_all),
-                                contentDescription = stringResource(R.string.clear_queue),
+                                painter = painterResource(R.drawable.edit),
+                                contentDescription = stringResource(R.string.edit),
                             )
                         }
                         IconButton(
@@ -1136,30 +1136,37 @@ fun Queue(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(
-                        onClick = onExitSelectionMode,
+                        enabled = count > 0 && !isListenTogetherGuest,
+                        onClick = {
+                            if (selectedItems.size == mutableQueueWindows.size) {
+                                state.collapseSoft()
+                            }
+                            playerConnection.removeFromQueue(selectedItems.map { it.firstPeriodIndex })
+                            onExitSelectionMode()
+                        },
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.close),
-                            contentDescription = null,
+                            painter = painterResource(R.drawable.delete),
+                            contentDescription = stringResource(R.string.delete),
                         )
                     }
                     Text(
                         text = pluralStringResource(R.plurals.n_selected, count, count),
                         modifier = Modifier.weight(1f),
                     )
-                    Checkbox(
-                        checked = count == mutableQueueWindows.size && count > 0,
-                        onCheckedChange = {
-                            if (count == mutableQueueWindows.size) {
-                                selection.clear()
-                            } else {
-                                selection.clear()
+                    val allSelected = count == mutableQueueWindows.size && count > 0
+                    TextButton(
+                        onClick = {
+                            selection.clear()
+                            if (!allSelected) {
                                 mutableQueueWindows.forEach {
                                     selection.add(it.mediaItem.mediaId)
                                 }
                             }
                         },
-                    )
+                    ) {
+                        Text(stringResource(if (allSelected) R.string.deselect_all else R.string.select_all))
+                    }
                     IconButton(
                         enabled = count > 0,
                         onClick = {
@@ -1177,6 +1184,14 @@ fun Queue(
                             painter = painterResource(R.drawable.more_vert),
                             contentDescription = null,
                             tint = LocalContentColor.current,
+                        )
+                    }
+                    IconButton(
+                        onClick = onExitSelectionMode,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.close),
+                            contentDescription = null,
                         )
                     }
                 }
