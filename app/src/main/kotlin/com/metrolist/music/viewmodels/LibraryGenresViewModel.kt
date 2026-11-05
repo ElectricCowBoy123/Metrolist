@@ -67,6 +67,6 @@ constructor(
                     .groupBy { it.genre(genres) }
                     .map { (genre, songs) -> GenreGroup(genre, songs) }
                     .partition { it.genre != null }
-            known.sortedWith(compareBy(collator) { it.genre!! }) + unknown
+            known.sortedWith(compareBy<GenreGroup, String>(collator) { it.genre!! }) + unknown
         }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 }
