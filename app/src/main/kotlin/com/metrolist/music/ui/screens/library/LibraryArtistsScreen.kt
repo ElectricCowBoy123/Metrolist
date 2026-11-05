@@ -89,7 +89,7 @@ fun LibraryArtistsScreen(
     val coroutineScope = rememberCoroutineScope()
     var viewType by rememberEnumPreference(ArtistViewTypeKey, LibraryViewType.GRID)
 
-    var filter by rememberEnumPreference(ArtistFilterKey, ArtistFilter.LIKED)
+    var filter by rememberEnumPreference(ArtistFilterKey, ArtistFilter.LIBRARY)
     val (sortType, onSortTypeChange) = rememberEnumPreference(
         ArtistSortTypeKey,
         ArtistSortType.CREATE_DATE

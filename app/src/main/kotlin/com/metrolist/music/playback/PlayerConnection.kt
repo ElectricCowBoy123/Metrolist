@@ -277,13 +277,16 @@ class PlayerConnection(
         service.continueWithQueue(queue)
     }
 
-    fun removeFromQueue(indices: Collection<Int>) {
+    fun removeFromQueue(
+        indices: Collection<Int>,
+        removeEverything: Boolean = false,
+    ) {
         // Block if Listen Together guest
         if (shouldBlockPlaybackChanges?.invoke() == true) {
             Timber.tag("PlayerConnection").d("removeFromQueue blocked - Listen Together guest")
             return
         }
-        service.removeFromQueue(indices)
+        service.removeFromQueue(indices, removeEverything)
     }
 
     fun playNext(item: MediaItem) = playNext(listOf(item))
