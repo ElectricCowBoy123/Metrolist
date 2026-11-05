@@ -999,6 +999,8 @@
     <string name="looking_up_genres">Looking up genres… %1$d of %2$d artists</string>
     <string name="radio_play">Play radio</string>
     <string name="radio_loading_failed">Couldn\'t load this radio</string>
+    <string name="next_from">Next from: %1$s</string>
+    <string name="stop_radio">Stop radio</string>
     <string name="select_all">Select all</string>
     <string name="deselect_all">Deselect all</string>
 </resources>

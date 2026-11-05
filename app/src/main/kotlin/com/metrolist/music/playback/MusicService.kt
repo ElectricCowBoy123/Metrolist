@@ -198,6 +198,7 @@ import com.metrolist.music.playback.alarm.MusicAlarmScheduler
 import com.metrolist.music.playback.alarm.MusicAlarmStore
 import com.metrolist.music.playback.audio.SilenceDetectorAudioProcessor
 import com.metrolist.music.playback.queues.EmptyQueue
+import com.metrolist.music.playback.queues.PreparedQueue
 import com.metrolist.music.playback.queues.ListQueue
 import com.metrolist.music.playback.queues.Queue
 import com.metrolist.music.playback.queues.YouTubeQueue
@@ -345,6 +346,16 @@ class MusicService :
 
     private var currentQueue: Queue = EmptyQueue
     var queueTitle: String? = null
+
+    /**
+     * What's left of a radio after its songs were removed from the queue. The radio carries on
+     * from here, like Spotify's "Next from" section. The first song is also the last item in the
+     * player so skipping and gapless playback still work, and the queue screen hides it there.
+     */
+    val radioUpNext = MutableStateFlow<List<MediaItem>>(emptyList())
+
+    /** Songs the user queued themselves, which clearing removes for good. */
+    private val userQueuedIds = mutableSetOf<String>()
 
     val currentMediaMetadata = MutableStateFlow<com.metrolist.music.models.MediaMetadata?>(null)
     private val currentSong =
@@ -1802,6 +1813,8 @@ class MusicService :
 
         currentQueue = queue
         queueTitle = null
+        radioUpNext.value = emptyList()
+        userQueuedIds.clear()
         val persistShuffleAcrossQueues = dataStore.get(PersistentShuffleAcrossQueuesKey, false)
         if (!persistShuffleAcrossQueues && !restoringQueue) {
             player.shuffleModeEnabled = false
@@ -1890,6 +1903,8 @@ class MusicService :
 
             currentQueue = queue
             queueTitle = status.title
+            radioUpNext.value = emptyList()
+            userQueuedIds.clear()
 
             val currentIndex = player.currentMediaItemIndex
             val itemCount = player.mediaItemCount
@@ -1906,10 +1921,15 @@ class MusicService :
     }
 
     /**
-     * Removes the songs at [indices] from the queue. Once at most one song is left the queue stops
-     * loading more, so it doesn't refill itself, and removing every song stops playback.
+     * Removes the songs at [indices] from the queue, or everything with [removeEverything], which
+     * stops playback. Removing all that's left to play of a radio doesn't end the radio: its songs
+     * move to [radioUpNext] and it carries on after the current song. Any other queue stops
+     * loading more once at most one song is left, so it doesn't refill itself.
      */
-    fun removeFromQueue(indices: Collection<Int>) {
+    fun removeFromQueue(
+        indices: Collection<Int>,
+        removeEverything: Boolean = false,
+    ) {
         if (!playerInitialized.value) {
             Timber.tag(TAG).w("removeFromQueue called before player initialization")
             return
@@ -1919,19 +1939,104 @@ class MusicService :
         val toRemove = indices.filter { it in 0 until itemCount }.distinct().sortedDescending()
         if (toRemove.isEmpty()) return
 
-        if (itemCount - toRemove.size <= 1) {
+        if (removeEverything || toRemove.size == itemCount) {
+            currentQueue = EmptyQueue
+            queueTitle = null
+            originalQueueSize = 0
+            radioUpNext.value = emptyList()
+            userQueuedIds.clear()
+            clearAutomix()
+            player.stop()
+            player.clearMediaItems()
+            return
+        }
+
+        val isRadio = currentQueue is PreparedQueue
+        if (!isRadio && itemCount - toRemove.size <= 1) {
             currentQueue = EmptyQueue
             queueTitle = null
             originalQueueSize = 0
         }
 
-        if (toRemove.size == itemCount) {
-            clearAutomix()
-            player.stop()
-            player.clearMediaItems()
-        } else {
-            toRemove.forEach(player::removeMediaItem)
+        val currentIndex = player.currentMediaItemIndex
+        val timeline = player.currentTimeline
+        val shuffle = player.shuffleModeEnabled
+        val upcoming =
+            generateSequence(timeline.getNextWindowIndex(currentIndex, REPEAT_MODE_OFF, shuffle)) {
+                timeline.getNextWindowIndex(it, REPEAT_MODE_OFF, shuffle)
+            }.takeWhile { it != C.INDEX_UNSET }.toList()
+        val removedAllUpcoming =
+            upcoming.isNotEmpty() && currentIndex !in toRemove && toRemove.containsAll(upcoming)
+        val radioSongs =
+            if (isRadio && radioUpNext.value.isEmpty() && removedAllUpcoming) {
+                upcoming.map(player::getMediaItemAt).filter { it.mediaId !in userQueuedIds }
+            } else {
+                emptyList()
+            }
+
+        toRemove.forEach(player::removeMediaItem)
+
+        if (radioSongs.isNotEmpty()) {
+            radioUpNext.value = radioSongs
+            addRadioLookahead(radioSongs.first())
         }
+    }
+
+    /** Skips ahead to the song at [index] of [radioUpNext]. */
+    fun playFromRadioUpNext(index: Int) {
+        val remaining = radioUpNext.value.drop(index)
+        if (remaining.isEmpty()) return
+
+        val lookahead = radioLookaheadIndex()
+        if (lookahead != C.INDEX_UNSET) {
+            player.removeMediaItem(lookahead)
+        }
+        radioUpNext.value = remaining
+        addRadioLookahead(remaining.first())
+        player.seekToDefaultPosition(player.mediaItemCount - 1)
+        player.playWhenReady = true
+    }
+
+    /** Ends the radio held in [radioUpNext], so nothing plays after the queue. */
+    fun stopRadio() {
+        val lookahead = radioLookaheadIndex()
+        radioUpNext.value = emptyList()
+        if (lookahead != C.INDEX_UNSET) {
+            player.removeMediaItem(lookahead)
+        }
+        currentQueue = EmptyQueue
+        queueTitle = null
+        originalQueueSize = 0
+    }
+
+    private fun radioLookaheadIndex(): Int {
+        val mediaId = radioUpNext.value.firstOrNull()?.mediaId ?: return C.INDEX_UNSET
+        val currentIndex = player.currentMediaItemIndex
+        return (player.mediaItemCount - 1 downTo 0).firstOrNull {
+            it != currentIndex && player.getMediaItemAt(it).mediaId == mediaId
+        } ?: C.INDEX_UNSET
+    }
+
+    private fun addRadioLookahead(item: MediaItem) {
+        player.addMediaItem(item)
+        if (player.shuffleModeEnabled) {
+            val shufflePlaylistFirst = dataStore.get(ShufflePlaylistFirstKey, false)
+            applyShuffleOrder(player.currentMediaItemIndex, player.mediaItemCount, shufflePlaylistFirst)
+        }
+    }
+
+    /** Moves [radioUpNext] on once its first song has started playing. */
+    private fun advanceRadioUpNext(mediaItem: MediaItem?) {
+        if (mediaItem == null) {
+            radioUpNext.value = emptyList()
+            return
+        }
+        val upNext = radioUpNext.value
+        if (upNext.firstOrNull()?.mediaId != mediaItem.mediaId) return
+
+        val remaining = upNext.drop(1)
+        radioUpNext.value = remaining
+        remaining.firstOrNull()?.let(::addRadioLookahead)
     }
 
     fun startRadioSeamlessly() {
@@ -1944,6 +2049,7 @@ class MusicService :
 
         val currentIndex = player.currentMediaItemIndex
         val currentMediaId = currentMediaMetadata.id
+        radioUpNext.value = emptyList()
 
         scope.launch(SilentHandler) {
             // Use simple videoId to let YouTube personalize recommendations
@@ -2122,6 +2228,8 @@ class MusicService :
     }
 
     fun playNext(items: List<MediaItem>) {
+        userQueuedIds += items.map { it.mediaId }
+
         // If queue is empty or player is idle, play immediately instead
         if (player.mediaItemCount == 0 || player.playbackState == STATE_IDLE) {
             player.setMediaItems(items)
@@ -2215,6 +2323,8 @@ class MusicService :
     }
 
     fun addToQueue(items: List<MediaItem>) {
+        userQueuedIds += items.map { it.mediaId }
+
         if (dataStore.get(PreventDuplicateTracksInQueueKey, false)) {
             val itemIds = items.map { it.mediaId }.toSet()
             val indicesToRemove = mutableListOf<Int>()
@@ -2232,7 +2342,13 @@ class MusicService :
             }
         }
 
-        player.addMediaItems(items)
+        // Queued songs play before what's left of a radio
+        val radioLookahead = radioLookaheadIndex()
+        if (radioLookahead == C.INDEX_UNSET) {
+            player.addMediaItems(items)
+        } else {
+            player.addMediaItems(radioLookahead, items)
+        }
         if (player.shuffleModeEnabled) {
             val shufflePlaylistFirst = dataStore.get(ShufflePlaylistFirstKey, false)
             applyShuffleOrder(player.currentMediaItemIndex, player.mediaItemCount, shufflePlaylistFirst)
@@ -2610,6 +2726,7 @@ class MusicService :
         }
         lastTransitionedMediaId = mediaItem?.mediaId
         initialBufferRecoveryJob?.cancel()
+        advanceRadioUpNext(mediaItem)
         initialBufferRecoveryJob = null
         initialBufferRecoveryAttemptedMediaId = null
         retryJob?.cancel()
@@ -2673,6 +2790,7 @@ class MusicService :
             reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
             player.mediaItemCount - player.currentMediaItemIndex <= 5 &&
             currentQueue.hasNextPage() &&
+            radioUpNext.value.isEmpty() &&
             !(cachedDisableLoadMoreWhenRepeatAll && player.repeatMode == REPEAT_MODE_ALL)
         ) {
             scope.launch(SilentHandler) {

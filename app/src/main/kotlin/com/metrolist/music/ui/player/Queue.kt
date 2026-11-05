@@ -657,6 +657,7 @@ fun Queue(
         val queueTitle by playerConnection.queueTitle.collectAsStateWithLifecycle()
         val queueWindows by playerConnection.queueWindows.collectAsStateWithLifecycle()
         val automix by playerConnection.service.automixItems.collectAsStateWithLifecycle()
+        val radioUpNext by playerConnection.service.radioUpNext.collectAsStateWithLifecycle()
         val mutableQueueWindows = remember { mutableStateListOf<Timeline.Window>() }
         val queueLength =
             remember(queueWindows) {
@@ -729,10 +730,17 @@ fun Queue(
             }
         }
 
-        LaunchedEffect(queueWindows) {
+        LaunchedEffect(queueWindows, radioUpNext) {
+            // The radio's next song is in the player, but it's shown under "Next from" below
+            val radioLookahead = radioUpNext.firstOrNull()?.mediaId
+            val lookaheadUid =
+                queueWindows
+                    .filterIndexed { index, window -> index != currentWindowIndex && window.mediaItem.mediaId == radioLookahead }
+                    .lastOrNull()
+                    ?.uid
             mutableQueueWindows.apply {
                 clear()
-                addAll(queueWindows)
+                addAll(queueWindows.filter { it.uid != lookaheadUid })
             }
         }
 
@@ -946,6 +954,50 @@ fun Queue(
                     }
                 }
 
+                if (radioUpNext.isNotEmpty()) {
+                    item(key = "radio_up_next_header") {
+                        HorizontalDivider(
+                            modifier =
+                                Modifier
+                                    .padding(vertical = 8.dp, horizontal = 4.dp)
+                                    .animateItem(),
+                        )
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.next_from, queueTitle ?: stringResource(R.string.start_radio)),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(start = 16.dp).weight(1f),
+                            )
+                            if (!isListenTogetherGuest) {
+                                IconButton(onClick = playerConnection.service::stopRadio) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.close),
+                                        contentDescription = stringResource(R.string.stop_radio),
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    itemsIndexed(
+                        items = radioUpNext,
+                        key = { index, item -> "radio_${item.mediaId}_$index" },
+                    ) { index, item ->
+                        MediaMetadataListItem(
+                            mediaMetadata = item.metadata!!,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .combinedClickable(
+                                        enabled = !isListenTogetherGuest,
+                                        onClick = { playerConnection.service.playFromRadioUpNext(index) },
+                                    ),
+                        )
+                    }
+                }
+
                 if (automix.isNotEmpty()) {
                     item(key = "automix_divider") {
                         HorizontalDivider(
@@ -1100,8 +1152,8 @@ fun Queue(
                         text =
                             pluralStringResource(
                                 R.plurals.n_song,
-                                queueWindows.size,
-                                queueWindows.size,
+                                mutableQueueWindows.size,
+                                mutableQueueWindows.size,
                             ),
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -1138,11 +1190,15 @@ fun Queue(
                     IconButton(
                         enabled = count > 0 && !isListenTogetherGuest,
                         onClick = {
-                            if (selectedItems.size == mutableQueueWindows.size) {
+                            val removeEverything = selectedItems.size == mutableQueueWindows.size
+                            if (removeEverything) {
                                 state.collapseSoft()
                                 playerBottomSheetState.dismiss()
                             }
-                            playerConnection.removeFromQueue(selectedItems.map { it.firstPeriodIndex })
+                            playerConnection.removeFromQueue(
+                                selectedItems.map { it.firstPeriodIndex },
+                                removeEverything,
+                            )
                             onExitSelectionMode()
                         },
                     ) {
