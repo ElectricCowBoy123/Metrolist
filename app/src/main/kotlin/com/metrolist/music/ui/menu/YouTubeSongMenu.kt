@@ -5,6 +5,7 @@
 
 package com.metrolist.music.ui.menu
 
+import com.metrolist.music.ui.screens.navigateToRadio
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.res.Configuration
@@ -389,7 +390,7 @@ fun YouTubeSongMenu(
                                 )
                             },
                             onClick = {
-                                playerConnection.playQueue(YouTubeQueue.radio(song.toMediaMetadata()))
+                                navController.navigateToRadio(YouTubeQueue.radioEndpoint(song.id), song.title)
                                 onDismiss()
                             }
                         )

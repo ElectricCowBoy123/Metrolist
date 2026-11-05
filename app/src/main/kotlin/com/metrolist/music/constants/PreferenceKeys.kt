@@ -307,6 +307,7 @@ enum class SongSortType {
     NAME,
     ARTIST,
     PLAY_TIME,
+    GENRE,
 }
 
 enum class PlaylistSongSortType {

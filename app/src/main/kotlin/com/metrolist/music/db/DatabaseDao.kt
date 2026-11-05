@@ -32,6 +32,7 @@ import com.metrolist.music.db.entities.AlbumEntity
 import com.metrolist.music.db.entities.AlbumWithSongs
 import com.metrolist.music.db.entities.Artist
 import com.metrolist.music.db.entities.ArtistEntity
+import com.metrolist.music.db.entities.ArtistGenreEntity
 import com.metrolist.music.db.entities.Event
 import com.metrolist.music.db.entities.EventWithSong
 import com.metrolist.music.db.entities.FormatEntity
@@ -58,6 +59,7 @@ import com.metrolist.music.models.toMediaMetadata
 import com.metrolist.music.ui.utils.resize
 import com.metrolist.music.utils.ArtistNameAliases
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
@@ -186,6 +188,11 @@ interface DatabaseDao {
             }
 
         SongSortType.PLAY_TIME -> songsByPlayTimeAsc()
+
+        SongSortType.GENRE ->
+            songsByRowIdAsc().combine(artistGenres()) { songs, genres ->
+                songs.sortedByGenreForDao(genres.toGenreMap(), descending)
+            }
     }.map { it.reversed(descending) }
 
     @Transaction
@@ -240,11 +247,25 @@ interface DatabaseDao {
             }
 
         SongSortType.PLAY_TIME -> likedSongsByPlayTimeAsc()
+
+        SongSortType.GENRE ->
+            likedSongsByRowIdAsc().combine(artistGenres()) { songs, genres ->
+                songs.sortedByGenreForDao(genres.toGenreMap(), descending)
+            }
     }.map { it.reversed(descending) }
 
     @Transaction
     @Query("SELECT COUNT(1) FROM song WHERE liked")
     fun likedSongsCount(): Flow<Int>
+
+    @Query("SELECT * FROM artist_genre")
+    fun artistGenres(): Flow<List<ArtistGenreEntity>>
+
+    @Query("SELECT artistId FROM artist_genre WHERE fetchedAt > :since")
+    suspend fun artistIdsWithFreshGenre(since: Long): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertArtistGenre(artistGenre: ArtistGenreEntity)
 
     @Transaction
     @Query("SELECT song.* FROM song JOIN song_album_map ON song.id = song_album_map.songId WHERE song_album_map.albumId = :albumId")
@@ -1233,6 +1254,11 @@ interface DatabaseDao {
         }
 
         SongSortType.PLAY_TIME -> downloadedSongsByPlayTimeAsc()
+
+        SongSortType.GENRE ->
+            downloadedSongsByCreateDateAsc().combine(artistGenres()) { songs, genres ->
+                songs.sortedByGenreForDao(genres.toGenreMap(), descending)
+            }
     }.map { it.reversed(descending) }
 
     @Transaction
@@ -1314,6 +1340,11 @@ interface DatabaseDao {
             }
 
         SongSortType.PLAY_TIME -> uploadedSongsByPlayTimeAsc()
+
+        SongSortType.GENRE ->
+            uploadedSongsByRowIdAsc().combine(artistGenres()) { songs, genres ->
+                songs.sortedByGenreForDao(genres.toGenreMap(), descending)
+            }
     }.map { it.reversed(descending) }
 
     @Transaction
@@ -1377,6 +1408,8 @@ interface DatabaseDao {
                 })
             }
         SongSortType.PLAY_TIME -> savedPodcastEpisodesByPlayTimeAsc()
+        // Genre isn't offered for podcasts, but the sort preference is shared with songs.
+        SongSortType.GENRE -> savedPodcastEpisodesByCreateDateAsc()
     }.map { it.reversed(descending) }
 
     fun downloadedPodcastEpisodes(
@@ -1399,6 +1432,8 @@ interface DatabaseDao {
                 })
             }
         SongSortType.PLAY_TIME -> downloadedPodcastEpisodesByPlayTimeAsc()
+        // Genre isn't offered for podcasts, but the sort preference is shared with songs.
+        SongSortType.GENRE -> downloadedPodcastEpisodesByCreateDateAsc()
     }.map { it.reversed(descending) }
 
     @Transaction

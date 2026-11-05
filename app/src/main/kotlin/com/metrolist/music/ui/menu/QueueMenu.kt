@@ -5,6 +5,7 @@
 
 package com.metrolist.music.ui.menu
 
+import com.metrolist.music.ui.screens.navigateToRadio
 import android.content.Intent
 import android.content.res.Configuration
 import androidx.compose.animation.core.animateFloatAsState
@@ -287,9 +288,11 @@ fun QueueMenu(
                             if (mediaMetadata.id == currentMediaId) {
                                 playerConnection.startRadioSeamlessly()
                             } else {
-                                playerConnection.playQueue(
-                                    YouTubeQueue.radio(mediaMetadata)
+                                navController.navigateToRadio(
+                                    YouTubeQueue.radioEndpoint(mediaMetadata.id),
+                                    mediaMetadata.title,
                                 )
+                                playerBottomSheetState.collapseSoft()
                             }
                         }
                     ),

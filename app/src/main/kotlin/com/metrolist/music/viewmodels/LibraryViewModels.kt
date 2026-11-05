@@ -47,6 +47,7 @@ import com.metrolist.music.extensions.filterYoutubeShorts
 import com.metrolist.music.extensions.matchesNormalizedQuery
 import com.metrolist.music.extensions.normalizeForSearch
 import com.metrolist.music.extensions.toEnum
+import com.metrolist.music.genre.ArtistGenreFetcher
 import com.metrolist.music.playback.DownloadUtil
 import com.metrolist.music.utils.PodcastRefreshTrigger
 import com.metrolist.music.utils.SyncUtils
@@ -65,6 +66,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -79,7 +81,11 @@ constructor(
     database: MusicDatabase,
     downloadUtil: DownloadUtil,
     private val syncUtils: SyncUtils,
+    private val genreFetcher: ArtistGenreFetcher,
 ) : ViewModel() {
+    /** Progress of the background genre lookup, shown while sorting by genre. */
+    val genreLookupProgress = genreFetcher.progress
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
     val debouncedSearchQuery = _searchQuery
@@ -110,6 +116,10 @@ constructor(
                     SongFilter.LIKED -> database.likedSongs(sortType, descending).map { it.filterExplicit(hideExplicit).filterVideoSongs(hideVideoSongs) }
                     SongFilter.DOWNLOADED -> database.downloadedSongs(sortType, descending).map { it.filterExplicit(hideExplicit).filterVideoSongs(hideVideoSongs) }
                     SongFilter.UPLOADED -> database.uploadedSongs(sortType, descending).map { it.filterExplicit(hideExplicit).filterVideoSongs(hideVideoSongs) }
+                }.onEach { songs ->
+                    if (sortType == SongSortType.GENRE) {
+                        genreFetcher.fetchMissing(songs.mapNotNull { it.orderedArtists.firstOrNull() })
+                    }
                 }
             }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 

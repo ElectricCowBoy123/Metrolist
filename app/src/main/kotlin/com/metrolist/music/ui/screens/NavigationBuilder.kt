@@ -328,6 +328,20 @@ fun NavGraphBuilder.navigationBuilder(
     }
 
     composable(
+        route = RADIO_ROUTE,
+        arguments =
+            listOf("videoId", "playlistId", "params", "title").map { name ->
+                navArgument(name) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            },
+    ) {
+        RadioScreen(navController)
+    }
+
+    composable(
         route = "youtube_browse/{browseId}?params={params}",
         arguments =
             listOf(

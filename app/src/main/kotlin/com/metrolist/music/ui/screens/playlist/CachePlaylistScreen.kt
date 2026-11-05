@@ -74,12 +74,15 @@ import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.metrolist.music.LocalDownloadUtil
 import com.metrolist.music.LocalPlayerAwareWindowInsets
+import com.metrolist.music.LocalDatabase
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
 import com.metrolist.music.constants.HideExplicitKey
 import com.metrolist.music.constants.SongSortDescendingKey
 import com.metrolist.music.constants.SongSortType
 import com.metrolist.music.constants.SongSortTypeKey
+import com.metrolist.music.db.sortedByGenreForDao
+import com.metrolist.music.db.toGenreMap
 import com.metrolist.music.db.entities.Song
 import com.metrolist.music.extensions.toMediaItem
 import com.metrolist.music.playback.queues.ListQueue
@@ -113,6 +116,9 @@ fun CachePlaylistScreen(
     val isPlaying by playerConnection.isEffectivelyPlaying.collectAsStateWithLifecycle()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsStateWithLifecycle()
     val cachedSongs by viewModel.cachedSongs.collectAsStateWithLifecycle()
+    val database = LocalDatabase.current
+    val artistGenres by remember(database) { database.artistGenres() }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
 
     val (sortType, onSortTypeChange) = rememberEnumPreference(
         SongSortTypeKey,
@@ -121,7 +127,7 @@ fun CachePlaylistScreen(
     val (sortDescending, onSortDescendingChange) = rememberPreference(SongSortDescendingKey, true)
     val hideExplicit by rememberPreference(key = HideExplicitKey, defaultValue = false)
 
-    val sortedSongs = remember(cachedSongs, sortType, sortDescending) {
+    val sortedSongs = remember(cachedSongs, sortType, sortDescending, artistGenres) {
         val sorted = when (sortType) {
             SongSortType.CREATE_DATE -> cachedSongs.sortedBy { it.song.dateDownload ?: LocalDateTime.MIN }
             SongSortType.NAME -> cachedSongs.sortedBy { it.song.title }
@@ -129,6 +135,7 @@ fun CachePlaylistScreen(
                 song.artists.joinToString(separator = "") { it.name }
             }
             SongSortType.PLAY_TIME -> cachedSongs.sortedBy { it.song.totalPlayTime }
+            SongSortType.GENRE -> cachedSongs.sortedByGenreForDao(artistGenres.toGenreMap(), sortDescending)
         }
         if (sortDescending) sorted.reversed() else sorted
     }
@@ -243,6 +250,7 @@ fun CachePlaylistScreen(
                                         SongSortType.NAME -> R.string.sort_by_name
                                         SongSortType.ARTIST -> R.string.sort_by_artist
                                         SongSortType.PLAY_TIME -> R.string.sort_by_play_time
+                                        SongSortType.GENRE -> R.string.sort_by_genre
                                     }
                                 },
                                 modifier = Modifier.weight(1f),

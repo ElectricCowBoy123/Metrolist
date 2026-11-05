@@ -994,4 +994,9 @@
     <string name="stream_source_web_creator_desc">Creator web client.</string>
     <string name="top_result">Top result</string>
     <string name="other">Other</string>
+    <string name="sort_by_genre">Genre</string>
+    <string name="unknown_genre">Unknown genre</string>
+    <string name="looking_up_genres">Looking up genres… %1$d of %2$d artists</string>
+    <string name="radio_play">Play radio</string>
+    <string name="radio_loading_failed">Couldn\'t load this radio</string>
 </resources>

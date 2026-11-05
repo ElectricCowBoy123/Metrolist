@@ -5,6 +5,8 @@
 
 package com.metrolist.music.ui.menu
 
+import com.metrolist.music.LocalNavController
+import com.metrolist.music.ui.screens.navigateToRadio
 import android.content.Intent
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.PaddingValues
@@ -58,6 +60,7 @@ fun YouTubeArtistMenu(
     val context = LocalContext.current
     val database = LocalDatabase.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    val navController = LocalNavController.current
     val libraryArtist by database.artist(artist.id).collectAsStateWithLifecycle(initialValue = null)
     val listenTogetherManager = LocalListenTogetherManager.current
     val isGuest = listenTogetherManager?.isInRoom == true && !listenTogetherManager.isHost
@@ -101,7 +104,7 @@ fun YouTubeArtistMenu(
                                     },
                                     text = stringResource(R.string.start_radio),
                                     onClick = {
-                                        playerConnection.playQueue(YouTubeQueue(watchEndpoint))
+                                        navController.navigateToRadio(watchEndpoint, artist.title)
                                         onDismiss()
                                     }
                                 )

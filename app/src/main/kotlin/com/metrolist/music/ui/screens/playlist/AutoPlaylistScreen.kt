@@ -93,6 +93,7 @@ import coil3.compose.AsyncImage
 import com.metrolist.innertube.YouTube
 import com.metrolist.music.LocalDownloadUtil
 import com.metrolist.music.LocalPlayerAwareWindowInsets
+import com.metrolist.music.LocalDatabase
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
 import com.metrolist.music.constants.HideExplicitKey
@@ -113,6 +114,11 @@ import com.metrolist.music.ui.component.IconButton
 import com.metrolist.music.ui.component.LocalMenuState
 import com.metrolist.music.ui.component.SongListItem
 import com.metrolist.music.ui.component.SortHeader
+import com.metrolist.music.ui.component.GenreLookupProgress
+import com.metrolist.music.ui.component.GenreSectionHeader
+import com.metrolist.music.db.genre
+import com.metrolist.music.db.toGenreMap
+import kotlinx.coroutines.flow.map
 import com.metrolist.music.ui.menu.AutoPlaylistMenu
 import com.metrolist.music.ui.menu.SelectionSongMenu
 import com.metrolist.music.ui.menu.SongMenu
@@ -152,6 +158,10 @@ fun AutoPlaylistScreen(
         }
 
     val songs by viewModel.likedSongs.collectAsStateWithLifecycle(null)
+    val genreLookupProgress by viewModel.genreLookupProgress.collectAsStateWithLifecycle()
+    val database = LocalDatabase.current
+    val genreMap by remember(database) { database.artistGenres().map { it.toGenreMap() } }
+        .collectAsStateWithLifecycle(initialValue = emptyMap())
     val mutableSongs =
         remember {
             mutableStateListOf<Song>()
@@ -546,10 +556,19 @@ fun AutoPlaylistScreen(
                                         SongSortType.NAME -> R.string.sort_by_name
                                         SongSortType.ARTIST -> R.string.sort_by_artist
                                         SongSortType.PLAY_TIME -> R.string.sort_by_play_time
+                                        SongSortType.GENRE -> R.string.sort_by_genre
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
                             )
+                        }
+                    }
+
+                    if (sortType == SongSortType.GENRE) {
+                        genreLookupProgress?.let { progress ->
+                            item(key = "genre_lookup_progress") {
+                                GenreLookupProgress(progress = progress)
+                            }
                         }
                     }
                 }
@@ -564,6 +583,13 @@ fun AutoPlaylistScreen(
                                 selection.add(song.id)
                             } else {
                                 selection.remove(song.id)
+                            }
+                        }
+
+                        if (sortType == SongSortType.GENRE) {
+                            val genre = song.genre(genreMap)
+                            if (index == 0 || filteredSongs[index - 1].genre(genreMap) != genre) {
+                                GenreSectionHeader(genre = genre)
                             }
                         }
 
