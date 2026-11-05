@@ -277,16 +277,26 @@ class PlayerConnection(
         service.continueWithQueue(queue)
     }
 
+    fun clearUserQueue() {
+        // Block if Listen Together guest
+        if (shouldBlockPlaybackChanges?.invoke() == true) {
+            Timber.tag("PlayerConnection").d("clearUserQueue blocked - Listen Together guest")
+            return
+        }
+        service.clearUserQueue()
+    }
+
     fun removeFromQueue(
         indices: Collection<Int>,
         removeEverything: Boolean = false,
+        radioSongIds: Set<String> = emptySet(),
     ) {
         // Block if Listen Together guest
         if (shouldBlockPlaybackChanges?.invoke() == true) {
             Timber.tag("PlayerConnection").d("removeFromQueue blocked - Listen Together guest")
             return
         }
-        service.removeFromQueue(indices, removeEverything)
+        service.removeFromQueue(indices, removeEverything, radioSongIds)
     }
 
     fun playNext(item: MediaItem) = playNext(listOf(item))

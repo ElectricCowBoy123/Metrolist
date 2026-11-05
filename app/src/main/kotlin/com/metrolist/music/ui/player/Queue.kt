@@ -817,7 +817,7 @@ fun Queue(
                                         if (snackbarResult == SnackbarResult.ActionPerformed) {
                                             playerConnection.player.addMediaItem(currentItem.mediaItem)
                                             playerConnection.player.moveMediaItem(
-                                                mutableQueueWindows.size,
+                                                playerConnection.player.mediaItemCount - 1,
                                                 currentItem.firstPeriodIndex,
                                             )
                                         }
@@ -941,14 +941,30 @@ fun Queue(
                             }
                         }
 
-                        if (locked) {
-                            content()
-                        } else {
-                            SwipeToDismissBox(
-                                state = dismissBoxState,
-                                backgroundContent = {},
-                            ) {
+                        Column {
+                            if (radioUpNext.isNotEmpty() && index == currentWindowIndex + 1) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = stringResource(R.string.next_in_queue),
+                                        modifier = Modifier.padding(start = 16.dp).weight(1f),
+                                    )
+                                    if (!isListenTogetherGuest) {
+                                        TextButton(onClick = playerConnection::clearUserQueue) {
+                                            Text(stringResource(R.string.clear_queue))
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (locked) {
                                 content()
+                            } else {
+                                SwipeToDismissBox(
+                                    state = dismissBoxState,
+                                    backgroundContent = {},
+                                ) {
+                                    content()
+                                }
                             }
                         }
                     }
@@ -985,14 +1001,43 @@ fun Queue(
                         items = radioUpNext,
                         key = { index, item -> "radio_${item.mediaId}_$index" },
                     ) { index, item ->
+                        val toggleSelected = {
+                            if (item.mediaId in selection) {
+                                selection.remove(item.mediaId)
+                            } else {
+                                selection.add(item.mediaId)
+                            }
+                            Unit
+                        }
                         MediaMetadataListItem(
                             mediaMetadata = item.metadata!!,
+                            trailingContent = {
+                                if (inSelectMode) {
+                                    Checkbox(
+                                        checked = item.mediaId in selection,
+                                        onCheckedChange = { toggleSelected() },
+                                    )
+                                }
+                            },
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
                                     .combinedClickable(
                                         enabled = !isListenTogetherGuest,
-                                        onClick = { playerConnection.service.playFromRadioUpNext(index) },
+                                        onClick = {
+                                            if (inSelectMode) {
+                                                toggleSelected()
+                                            } else {
+                                                playerConnection.service.playFromRadioUpNext(index)
+                                            }
+                                        },
+                                        onLongClick = {
+                                            if (!inSelectMode) {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                inSelectMode = true
+                                                toggleSelected()
+                                            }
+                                        },
                                     ),
                         )
                     }
@@ -1170,11 +1215,16 @@ fun Queue(
                 enter = fadeIn() + expandVertically(),
                 exit = fadeOut() + shrinkVertically(),
             ) {
+                val selectedRadioSongs =
+                    remember(selection.toList(), radioUpNext) {
+                        radioUpNext.filter { it.mediaId in selection }
+                    }
                 val selectedSongs =
-                    remember(selection.toList(), mutableQueueWindows) {
+                    remember(selection.toList(), mutableQueueWindows, selectedRadioSongs) {
                         mutableQueueWindows
                             .filter { it.mediaItem.mediaId in selection }
-                            .mapNotNull { it.mediaItem.metadata }
+                            .mapNotNull { it.mediaItem.metadata } +
+                            selectedRadioSongs.mapNotNull { it.metadata }
                     }
                 val selectedItems =
                     remember(selection.toList(), mutableQueueWindows) {
@@ -1190,7 +1240,9 @@ fun Queue(
                     IconButton(
                         enabled = count > 0 && !isListenTogetherGuest,
                         onClick = {
-                            val removeEverything = selectedItems.size == mutableQueueWindows.size
+                            val removeEverything =
+                                selectedItems.size == mutableQueueWindows.size &&
+                                    selectedRadioSongs.size == radioUpNext.size
                             if (removeEverything) {
                                 state.collapseSoft()
                                 playerBottomSheetState.dismiss()
@@ -1198,6 +1250,7 @@ fun Queue(
                             playerConnection.removeFromQueue(
                                 selectedItems.map { it.firstPeriodIndex },
                                 removeEverything,
+                                selectedRadioSongs.mapTo(mutableSetOf()) { it.mediaId },
                             )
                             onExitSelectionMode()
                         },
@@ -1211,13 +1264,18 @@ fun Queue(
                         text = pluralStringResource(R.plurals.n_selected, count, count),
                         modifier = Modifier.weight(1f),
                     )
-                    val allSelected = count == mutableQueueWindows.size && count > 0
+                    val allSelected =
+                        count > 0 && selectedItems.size == mutableQueueWindows.size &&
+                            selectedRadioSongs.size == radioUpNext.size
                     TextButton(
                         onClick = {
                             selection.clear()
                             if (!allSelected) {
                                 mutableQueueWindows.forEach {
                                     selection.add(it.mediaItem.mediaId)
+                                }
+                                radioUpNext.forEach {
+                                    selection.add(it.mediaId)
                                 }
                             }
                         },
