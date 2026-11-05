@@ -48,6 +48,15 @@ jobs:
           path: app/pr-debug.keystore
           key: fork-test-keystore
 
+      - name: Run radio queue tests
+        run: chmod +x gradlew && ./gradlew --console=plain testGmsDebugUnitTest --tests '*RadioQueueTest' --warning-mode summary
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-reports
+          path: app/build/reports/tests
+
       - name: Build GMS debug APK
         run: chmod +x gradlew && ./gradlew --console=plain assembleGmsDebug --warning-mode summary
         env:
