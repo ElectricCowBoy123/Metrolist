@@ -282,18 +282,11 @@ fun QueueMenu(
                         text = stringResource(R.string.start_radio),
                         onClick = {
                             onDismiss()
-                            val currentMediaId = playerConnection.player.currentMediaItemIndex.let {
-                                playerConnection.player.getMediaItemAt(it).mediaId
-                            }
-                            if (mediaMetadata.id == currentMediaId) {
-                                playerConnection.startRadioSeamlessly()
-                            } else {
-                                navController.navigateToRadio(
-                                    YouTubeQueue.radioEndpoint(mediaMetadata.id),
-                                    mediaMetadata.title,
-                                )
-                                playerBottomSheetState.collapseSoft()
-                            }
+                            navController.navigateToRadio(
+                                YouTubeQueue.radioEndpoint(mediaMetadata.id),
+                                mediaMetadata.title,
+                            )
+                            playerBottomSheetState.collapseSoft()
                         }
                     ),
                     NewAction(

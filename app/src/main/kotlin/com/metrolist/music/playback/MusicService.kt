@@ -1867,6 +1867,67 @@ class MusicService :
         originalQueueSize = initialQueueSize
     }
 
+    /**
+     * Keeps the current song playing and makes [queue], minus that song, what plays after it.
+     * Songs already played stay in the queue.
+     */
+    fun continueWithQueue(queue: Queue) {
+        if (!playerInitialized.value) {
+            Timber.tag(TAG).w("continueWithQueue called before player initialization")
+            return
+        }
+
+        val currentMediaId = player.currentMetadata?.id
+        if (currentMediaId == null) {
+            playQueue(queue)
+            return
+        }
+
+        scope.launch(SilentHandler) {
+            val status = withContext(Dispatchers.IO) { queue.getInitialStatus() }
+            val items = status.items.filter { it.mediaId != currentMediaId }
+            if (items.isEmpty()) return@launch
+
+            currentQueue = queue
+            queueTitle = status.title
+
+            val currentIndex = player.currentMediaItemIndex
+            val itemCount = player.mediaItemCount
+            if (itemCount > currentIndex + 1) {
+                player.removeMediaItems(currentIndex + 1, itemCount)
+            }
+            player.addMediaItems(currentIndex + 1, items)
+            if (player.shuffleModeEnabled) {
+                val shufflePlaylistFirst = dataStore.get(ShufflePlaylistFirstKey, false)
+                applyShuffleOrder(player.currentMediaItemIndex, player.mediaItemCount, shufflePlaylistFirst)
+            }
+            player.playWhenReady = true
+        }
+    }
+
+    /** Removes everything from the queue except the current song, and stops it loading more. */
+    fun clearQueue() {
+        if (!playerInitialized.value) {
+            Timber.tag(TAG).w("clearQueue called before player initialization")
+            return
+        }
+
+        val itemCount = player.mediaItemCount
+        if (itemCount == 0) return
+
+        currentQueue = EmptyQueue
+        queueTitle = null
+        originalQueueSize = 0
+
+        val currentIndex = player.currentMediaItemIndex
+        if (itemCount > currentIndex + 1) {
+            player.removeMediaItems(currentIndex + 1, itemCount)
+        }
+        if (currentIndex > 0) {
+            player.removeMediaItems(0, currentIndex)
+        }
+    }
+
     fun startRadioSeamlessly() {
         if (!playerInitialized.value) {
             Timber.tag(TAG).w("startRadioSeamlessly called before player initialization")

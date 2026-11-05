@@ -45,6 +45,9 @@ constructor(
         )
     private val fallbackTitle = savedStateHandle.get<String>("title")
 
+    /** The song this radio was started from, if any. */
+    val seedVideoId: String? = endpoint.videoId
+
     sealed interface State {
         data object Loading : State
 
