@@ -1140,6 +1140,7 @@ fun Queue(
                         onClick = {
                             if (selectedItems.size == mutableQueueWindows.size) {
                                 state.collapseSoft()
+                                playerBottomSheetState.dismiss()
                             }
                             playerConnection.removeFromQueue(selectedItems.map { it.firstPeriodIndex })
                             onExitSelectionMode()
